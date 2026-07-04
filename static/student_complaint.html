@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>University of Maiduguri Hostel Maintenance Report</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #F0F4F8;
+      min-height: 100vh;
+      color: #1A202C;
+    }
+
+    /* Header */
+    .header {
+      background: #1B3A6B;
+      color: #fff;
+      padding: 1.25rem 1.5rem 1.5rem;
+    }
+    .header-meta {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #90B8E8;
+      margin-bottom: 4px;
+    }
+    .header h1 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+    .header-sub {
+      font-size: 13px;
+      color: #B8D0EE;
+    }
+
+    /* Form body */
+    .form-body {
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #4A5568;
+      margin-bottom: 10px;
+    }
+
+    /* Category cards */
+    .category-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .cat-card {
+      background: #fff;
+      border: 2px solid #E2E8F0;
+      border-radius: 12px;
+      padding: 14px 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .cat-card:active { transform: scale(0.97); }
+
+    .cat-card .icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+    }
+    .cat-card.elec .icon  { background: #FEF3C7; color: #D97706; }
+    .cat-card.plumb .icon { background: #DBEAFE; color: #2563EB; }
+    .cat-card.furn .icon  { background: #D1FAE5; color: #059669; }
+
+    .cat-card span {
+      font-size: 12px;
+      font-weight: 600;
+      color: #4A5568;
+      text-align: center;
+    }
+
+    .cat-card.selected {
+      border-color: #1B3A6B;
+      background: #EBF1FA;
+    }
+    .cat-card.selected span { color: #1B3A6B; }
+
+    /* Form card */
+    .form-card {
+      background: #fff;
+      border-radius: 12px;
+      border: 1px solid #E2E8F0;
+      padding: 1rem 1.25rem;
+    }
+
+    .form-card textarea {
+      width: 100%;
+      border: 1.5px solid #E2E8F0;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-family: inherit;
+      font-size: 14px;
+      color: #1A202C;
+      resize: none;
+      outline: none;
+      background: #F7FAFC;
+      min-height: 90px;
+      transition: border-color 0.15s;
+    }
+    .form-card textarea:focus { border-color: #1B3A6B; background: #fff; }
+    .form-card textarea::placeholder { color: #A0AEC0; }
+
+    /* Photo upload */
+    .photo-zone {
+      border: 2px dashed #CBD5E0;
+      border-radius: 10px;
+      background: #F7FAFC;
+      padding: 1.5rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .photo-zone:active { border-color: #1B3A6B; }
+    .photo-zone input { display: none; }
+
+    .photo-icon {
+      font-size: 32px;
+      margin-bottom: 8px;
+    }
+    .photo-zone p {
+      font-size: 13px;
+      color: #718096;
+      margin-bottom: 4px;
+    }
+    .photo-zone small {
+      font-size: 11px;
+      color: #A0AEC0;
+    }
+
+    .photo-preview {
+      display: none;
+      margin-top: 12px;
+      position: relative;
+    }
+    .photo-preview img {
+      width: 100%;
+      max-height: 200px;
+      object-fit: cover;
+      border-radius: 8px;
+    }
+    .remove-photo {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      background: rgba(0,0,0,0.55);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      width: 26px;
+      height: 26px;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Name field */
+    .form-card input[type="text"] {
+      width: 100%;
+      border: 1.5px solid #E2E8F0;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-family: inherit;
+      font-size: 14px;
+      color: #1A202C;
+      outline: none;
+      background: #F7FAFC;
+      transition: border-color 0.15s;
+    }
+    .form-card input[type="text"]:focus { border-color: #1B3A6B; background: #fff; }
+    .form-card input[type="text"]::placeholder { color: #A0AEC0; }
+
+    /* Submit button */
+    .submit-btn {
+      width: 100%;
+      background: #1B3A6B;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      padding: 15px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: 0.02em;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .submit-btn:hover { background: #163060; }
+    .submit-btn:active { transform: scale(0.98); }
+    .submit-btn:disabled { background: #A0AEC0; cursor: not-allowed; }
+
+    /* Error message */
+    .error-msg {
+      color: #C53030;
+      font-size: 12px;
+      margin-top: 6px;
+      display: none;
+    }
+
+    /* Success screen */
+    .success-screen {
+      display: none;
+      text-align: center;
+      padding: 3rem 2rem;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      min-height: 60vh;
+      justify-content: center;
+    }
+    .success-check {
+      width: 72px;
+      height: 72px;
+      background: #D1FAE5;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      color: #059669;
+    }
+    .success-screen h2 { font-size: 20px; font-weight: 600; color: #1A202C; }
+    .success-screen p  { font-size: 14px; color: #718096; line-height: 1.6; }
+    .success-ref {
+      background: #EBF4FF;
+      color: #1B3A6B;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 8px;
+    }
+    .new-report-btn {
+      margin-top: 0.5rem;
+      background: none;
+      border: 2px solid #1B3A6B;
+      color: #1B3A6B;
+      border-radius: 10px;
+      padding: 10px 24px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .bottom-pad { height: 1.5rem; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-meta">Hostel Maintenance</div>
+  <h1 id="hostel-name">Block A – Room 204</h1>
+  <div class="header-sub">Submit a complaint and we'll fix it fast.</div>
+</div>
+
+<div id="main-form">
+  <div class="form-body">
+
+    <!-- Category -->
+    <div>
+      <div class="section-label">Type of complaint</div>
+      <div class="category-grid">
+        <div class="cat-card elec" data-cat="electrical" onclick="selectCategory(this)">
+          <div class="icon">⚡</div>
+          <span>Electrical</span>
+        </div>
+        <div class="cat-card plumb" data-cat="plumbing" onclick="selectCategory(this)">
+          <div class="icon">🚿</div>
+          <span>Plumbing</span>
+        </div>
+        <div class="cat-card furn" data-cat="furniture" onclick="selectCategory(this)">
+          <div class="icon">🪑</div>
+          <span>Furniture</span>
+        </div>
+      </div>
+      <div class="error-msg" id="err-cat">Please select a complaint type.</div>
+    </div>
+
+    <!-- Name -->
+    <div class="form-card">
+      <div class="section-label" style="margin-bottom:10px">Identification Number</div>
+      <input type="text" id="student-ID" placeholder="e.g. 22/08/05/0202" />
+      <div class="error-msg" id="err-ID">Please enter your ID Number.</div>
+    </div>
+
+    <!--Room Number -->
+    <div class="form-card">
+      <div class="section-label" style="margin-bottom:10px">Room Number</div>
+      <input type="text" id="student-RoomNumb" placeholder="e.g. ROOM 16" />
+      <div class="error-msg" id="err-RoomNumb">Please enter your Room Number.</div>
+    </div>
+
+    <!-- Description -->
+    <div class="form-card">
+      <div class="section-label" style="margin-bottom:10px">Describe the issue</div>
+      <textarea id="description" placeholder="e.g. The ceiling fan in my room has stopped working since yesterday evening…"></textarea>
+      <div class="error-msg" id="err-desc">Please describe the issue.</div>
+    </div>
+
+    <!-- Photo -->
+    <div class="form-card">
+      <div class="section-label" style="margin-bottom:10px">Attach a photo <span style="font-weight:400;text-transform:none;color:#A0AEC0">(optional)</span></div>
+      <div class="photo-zone" onclick="document.getElementById('photo-input').click()">
+        <input type="file" id="photo-input" accept="image/*" capture="environment" onchange="handlePhoto(event)" />
+        <div class="photo-icon">📷</div>
+        <p>Tap to take a photo or choose from gallery</p>
+        <small>JPG, PNG — max 10 MB</small>
+      </div>
+      <div class="photo-preview" id="photo-preview">
+        <img id="preview-img" src="" alt="Preview" />
+        <button class="remove-photo" onclick="removePhoto()">✕</button>
+      </div>
+    </div>
+
+    <!-- Submit -->
+    <button class="submit-btn" onclick="submitComplaint()">Submit complaint</button>
+
+    <div class="bottom-pad"></div>
+  </div>
+</div>
+
+<!-- Success Screen -->
+<div class="success-screen" id="success-screen">
+  <div class="success-check">✓</div>
+  <h2>Complaint submitted!</h2>
+  <p>Your complaint has been received.<br>The maintenance team will be notified.</p>
+  <div class="success-ref" id="ref-num">Ref: #MCR-00001</div>
+  <button class="new-report-btn" onclick="resetForm()">Submit another complaint</button>
+</div>
+
+<script>
+  let selectedCategory = null;
+
+  // Read hostel info from URL params
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('hostel')) {
+    document.getElementById('hostel-name').textContent = params.get('hostel');
+  }
+
+  function selectCategory(el) {
+    document.querySelectorAll('.cat-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedCategory = el.dataset.cat;
+    document.getElementById('err-cat').style.display = 'none';
+  }
+
+  function handlePhoto(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      document.getElementById('preview-img').src = ev.target.result;
+      document.getElementById('photo-preview').style.display = 'block';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function removePhoto() {
+    document.getElementById('photo-input').value = '';
+    document.getElementById('preview-img').src = '';
+    document.getElementById('photo-preview').style.display = 'none';
+  }
+
+  function showError(id, show) {
+    document.getElementById(id).style.display = show ? 'block' : 'none';
+  }
+
+  async function submitComplaint() {
+    const studentId  = document.getElementById('student-ID').value.trim();
+    const roomNumber = document.getElementById('student-RoomNumb').value.trim();
+    const desc       = document.getElementById('description').value.trim();
+    let valid = true;
+
+    if (!selectedCategory) { showError('err-cat', true); valid = false; }
+    if (!studentId)        { showError('err-ID', true); valid = false; }
+    if (!roomNumber)       { showError('err-RoomNumb', true); valid = false; }
+    if (!desc)             { showError('err-desc', true); valid = false; }
+
+    if (!valid) return;
+
+    const btn = document.querySelector('.submit-btn');
+    btn.disabled = true;
+    btn.textContent = 'Submitting…';
+
+    // Read photo as base64 if one was chosen
+    const photoFile = document.getElementById('photo-input').files[0];
+    let photoData = null;
+    if (photoFile) {
+      photoData = await new Promise(res => {
+        const r = new FileReader();
+        r.onload = e => res(e.target.result);
+        r.readAsDataURL(photoFile);
+      });
+    }
+
+    // Parse hostel/room from URL params
+    const urlParams = new URLSearchParams(window.location.search);
+
+    try {
+      const resp = await fetch('/api/complaints', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hostel:      urlParams.get('hostel') || document.getElementById('hostel-name').textContent,
+          room:        roomNumber,
+          student:     studentId,
+          category:    selectedCategory,
+          description: desc,
+          photo:       photoData
+        })
+      });
+
+      const result = await resp.json();
+      if (!resp.ok) throw new Error(result.error || 'Submission failed');
+
+      document.getElementById('ref-num').textContent = 'Ref: #' + result.ref_number;
+      document.getElementById('main-form').style.display = 'none';
+      document.getElementById('success-screen').style.display = 'flex';
+
+    } catch (err) {
+      alert('Could not submit: ' + err.message);
+      btn.disabled = false;
+      btn.textContent = 'Submit complaint';
+    }
+  }
+
+  function resetForm() {
+    selectedCategory = null;
+    document.querySelectorAll('.cat-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById('student-ID').value = '';
+    document.getElementById('student-RoomNumb').value = '';
+    document.getElementById('description').value = '';
+    removePhoto();
+    document.getElementById('main-form').style.display = 'block';
+    document.getElementById('success-screen').style.display = 'none';
+  }
+</script>
+
+</body>
+</html>

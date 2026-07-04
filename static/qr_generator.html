@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QR Code Generator – HostelCare</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #F0F4F8;
+      color: #1A202C;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: #1B3A6B;
+      color: #fff;
+      padding: 1.25rem 2rem;
+      display: flex; align-items: center; gap: 1rem;
+    }
+    .header h1 { font-size: 18px; font-weight: 600; }
+    .header p  { font-size: 13px; color: #90B8E8; margin-top: 2px; }
+    .back-link {
+      color: #90B8E8; font-size: 13px; text-decoration: none;
+      margin-left: auto; white-space: nowrap;
+    }
+    .back-link:hover { color: #fff; }
+
+    /* ── Layout ── */
+    .layout {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 1.5rem;
+      padding: 1.75rem 2rem;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    /* ── Panel card ── */
+    .panel {
+      background: #fff;
+      border: 1px solid #E2E8F0;
+      border-radius: 14px;
+      padding: 1.5rem;
+    }
+    .panel-title {
+      font-size: 13px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.07em;
+      color: #4A5568; margin-bottom: 1.25rem;
+    }
+
+    /* ── Form fields ── */
+    .field { margin-bottom: 1rem; }
+    .field label {
+      display: block; font-size: 12px; font-weight: 600;
+      color: #718096; margin-bottom: 5px;
+      text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    .field input, .field select {
+      width: 100%;
+      border: 1.5px solid #E2E8F0;
+      border-radius: 8px;
+      padding: 9px 12px;
+      font-family: inherit; font-size: 14px; color: #1A202C;
+      outline: none; background: #F7FAFC;
+      transition: border-color 0.15s;
+    }
+    .field input:focus, .field select:focus {
+      border-color: #1B3A6B; background: #fff;
+    }
+    .field input::placeholder { color: #A0AEC0; }
+
+    .url-preview {
+      margin-top: 6px; font-size: 11px; color: #718096;
+      word-break: break-all; line-height: 1.5;
+    }
+    .url-preview span { color: #1B3A6B; font-weight: 500; }
+
+    .generate-btn {
+      width: 100%;
+      background: #1B3A6B; color: #fff;
+      border: none; border-radius: 10px;
+      padding: 13px; font-size: 14px; font-weight: 600;
+      cursor: pointer; margin-top: 0.5rem;
+      transition: background 0.15s;
+    }
+    .generate-btn:hover { background: #163060; }
+
+    /* ── Divider ── */
+    .divider {
+      border: none; border-top: 1px solid #E2E8F0;
+      margin: 1.25rem 0;
+    }
+
+    /* ── Bulk section ── */
+    .bulk-note {
+      font-size: 12px; color: #718096; line-height: 1.6;
+      margin-bottom: 0.75rem;
+    }
+    .room-list {
+      width: 100%; border: 1.5px solid #E2E8F0;
+      border-radius: 8px; padding: 9px 12px;
+      font-family: inherit; font-size: 13px;
+      color: #1A202C; background: #F7FAFC;
+      resize: vertical; min-height: 80px; outline: none;
+    }
+    .room-list:focus { border-color: #1B3A6B; background: #fff; }
+
+    .bulk-btn {
+      width: 100%;
+      background: #fff; color: #1B3A6B;
+      border: 2px solid #1B3A6B;
+      border-radius: 10px; padding: 11px;
+      font-size: 13px; font-weight: 600;
+      cursor: pointer; margin-top: 0.75rem;
+      transition: background 0.15s;
+    }
+    .bulk-btn:hover { background: #EBF1FA; }
+
+    /* ── QR output area ── */
+    .output-panel { min-height: 300px; }
+
+    .empty-state {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      min-height: 260px; gap: 12px;
+      color: #A0AEC0;
+    }
+    .empty-icon { font-size: 48px; }
+    .empty-state p { font-size: 13px; }
+
+    /* ── Single QR card ── */
+    .qr-single {
+      display: none;
+      flex-direction: column; align-items: center;
+      gap: 1rem;
+    }
+    .qr-box {
+      background: #fff;
+      border: 1px solid #E2E8F0;
+      border-radius: 12px;
+      padding: 1.25rem;
+      display: flex; flex-direction: column; align-items: center;
+      gap: 0.75rem;
+    }
+    .qr-label {
+      font-size: 15px; font-weight: 700; color: #1B3A6B;
+      text-align: center;
+    }
+    .qr-sub {
+      font-size: 12px; color: #718096; text-align: center;
+    }
+    #qr-canvas { display: flex; align-items: center; justify-content: center; }
+
+    .qr-actions {
+      display: flex; gap: 10px; width: 100%;
+    }
+    .qr-actions button {
+      flex: 1; padding: 9px; border-radius: 8px;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      border: 1.5px solid #E2E8F0; background: #fff; color: #4A5568;
+      transition: background 0.15s;
+    }
+    .qr-actions button:hover { background: #F7FAFC; border-color: #CBD5E0; }
+    .qr-actions .primary-action {
+      background: #1B3A6B; color: #fff; border-color: #1B3A6B;
+    }
+    .qr-actions .primary-action:hover { background: #163060; }
+
+    /* ── Bulk grid ── */
+    .qr-grid {
+      display: none;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 14px;
+    }
+    .qr-grid-card {
+      background: #fff; border: 1px solid #E2E8F0;
+      border-radius: 10px; padding: 1rem;
+      display: flex; flex-direction: column; align-items: center;
+      gap: 8px;
+    }
+    .qr-grid-card .card-label {
+      font-size: 12px; font-weight: 700;
+      color: #1B3A6B; text-align: center;
+    }
+    .qr-grid-card .card-room {
+      font-size: 11px; color: #718096;
+    }
+    .grid-dl {
+      font-size: 11px; color: #1B3A6B;
+      background: #EBF1FA; border: none;
+      border-radius: 6px; padding: 5px 10px;
+      cursor: pointer; font-weight: 600; width: 100%;
+    }
+
+    .print-all-btn {
+      margin-top: 1rem;
+      background: #1B3A6B; color: #fff;
+      border: none; border-radius: 10px;
+      padding: 11px 24px; font-size: 14px; font-weight: 600;
+      cursor: pointer; display: none;
+    }
+    .print-all-btn:hover { background: #163060; }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .layout { grid-template-columns: 1fr; padding: 1rem; }
+    }
+
+    /* ── Print styles ── */
+    @media print {
+      .header, .layout > .panel:first-child, .qr-actions, .print-all-btn { display: none !important; }
+      .layout { display: block; padding: 0; }
+      .qr-grid { display: grid !important; }
+      .qr-single { display: flex !important; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>🔳 QR Code Generator</h1>
+    <p>Generate scannable QR codes for each hostel room</p>
+  </div>
+  <a class="back-link" href="admin_dashboard.html">← Back to dashboard</a>
+</div>
+
+<div class="layout">
+
+  <!-- Left panel: form -->
+  <div class="panel">
+    <div class="panel-title">Single room QR</div>
+
+    <div class="field">
+      <label>Base URL (your server)</label>
+      <input type="text" id="base-url" value="http://localhost:8080" placeholder="https://yourserver.com" oninput="updatePreview()" />
+    </div>
+    <div class="field">
+      <label>Hostel / Block name</label>
+      <input type="text" id="hostel-name" placeholder="e.g. Block A" oninput="updatePreview()" />
+    </div>
+
+
+    <button class="generate-btn" onclick="generateSingle()">Generate QR Code</button>
+
+    <hr class="divider" />
+
+    <div class="panel-title">Bulk generate</div>
+    <p class="bulk-note">Enter one block per line (e.g. <em>Block A</em>, <em>Block B</em>)</p>
+    <textarea class="room-list" id="bulk-rooms" placeholder="Block A&#10;Block B&#10;Block C"></textarea>
+    <button class="bulk-btn" onclick="generateBulk()">⚡ Generate all QR codes</button>
+  </div>
+
+  <!-- Right panel: output -->
+  <div class="panel output-panel">
+    <div class="panel-title">Output</div>
+
+    <!-- Empty state -->
+    <div class="empty-state" id="empty-state">
+      <div class="empty-icon">🔳</div>
+      <p>Fill in the form and click Generate</p>
+    </div>
+
+    <!-- Single QR -->
+    <div class="qr-single" id="qr-single">
+      <div class="qr-box" id="qr-printable">
+        <div class="qr-label" id="qr-label-text"></div>
+        <div id="qr-canvas"></div>
+        <div class="qr-sub">Scan to report a maintenance issue</div>
+      </div>
+      <div class="qr-actions">
+        <button onclick="copyUrl()">📋 Copy URL</button>
+        <button class="primary-action" onclick="downloadQR()">⬇ Download PNG</button>
+      </div>
+    </div>
+
+    <!-- Bulk grid -->
+    <div class="qr-grid" id="qr-grid"></div>
+    <button class="print-all-btn" id="print-all-btn" onclick="window.print()">🖨 Print all QR codes</button>
+  </div>
+
+</div>
+
+<script>
+  const BASE_URL_INPUT  = () => document.getElementById('base-url').value.trim().replace(/\/$/, '');
+  const HOSTEL_INPUT    = () => document.getElementById('hostel-name').value.trim();
+
+  let currentQRUrl = '';
+
+  function buildUrl(hostel) {
+    const base   = BASE_URL_INPUT();
+    const params = new URLSearchParams();
+    if (hostel) params.set('hostel', hostel);
+    return `${base}/?${params.toString()}`;
+  }
+
+  function updatePreview() {
+    const hostel = HOSTEL_INPUT();
+    const url  = buildUrl(hostel);
+    const el   = document.getElementById('url-preview-text');
+    el.textContent = hostel ? url : '—';
+  }
+
+  // ── Single QR ──────────────────────────────────────────────────────────────
+
+  function generateSingle() {
+    const hostel = HOSTEL_INPUT();
+
+    if (!hostel) {
+      alert('Please enter the hostel/block name.');
+      return;
+    }
+
+    currentQRUrl = buildUrl(hostel);
+    const label  = hostel;
+
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('qr-grid').style.display     = 'none';
+    document.getElementById('print-all-btn').style.display = 'none';
+
+    const single = document.getElementById('qr-single');
+    single.style.display = 'flex';
+
+    document.getElementById('qr-label-text').textContent = label;
+
+    const canvas = document.getElementById('qr-canvas');
+    canvas.innerHTML = '';
+    new QRCode(canvas, {
+      text:         currentQRUrl,
+      width:        200,
+      height:       200,
+      colorDark:    '#1B3A6B',
+      colorLight:   '#ffffff',
+      correctLevel: QRCode.CorrectLevel.H
+    });
+  }
+
+  function copyUrl() {
+    if (!currentQRUrl) return;
+    navigator.clipboard.writeText(currentQRUrl)
+      .then(() => alert('URL copied to clipboard!'))
+      .catch(() => alert(currentQRUrl));
+  }
+
+  function downloadQR() {
+    setTimeout(() => {
+      const img = document.querySelector('#qr-canvas img');
+      if (!img) { alert('QR not ready yet, try again.'); return; }
+      const a = document.createElement('a');
+      a.href     = img.src;
+      a.download = document.getElementById('qr-label-text').textContent.replace(/\s/g,'_') + '_QR.png';
+      a.click();
+    }, 200);
+  }
+
+  // ── Bulk QR ────────────────────────────────────────────────────────────────
+
+  function generateBulk() {
+    const raw   = document.getElementById('bulk-rooms').value.trim();
+    const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
+
+    if (!lines.length) { alert('Please enter at least one room.'); return; }
+
+    document.getElementById('empty-state').style.display  = 'none';
+    document.getElementById('qr-single').style.display    = 'none';
+
+    const grid = document.getElementById('qr-grid');
+    grid.innerHTML = '';
+    grid.style.display = 'grid';
+    document.getElementById('print-all-btn').style.display = 'block';
+
+    lines.forEach((line, i) => {
+      const hostel = line;
+      const url    = buildUrl(hostel);
+      const label  = hostel;
+
+      const card = document.createElement('div');
+      card.className = 'qr-grid-card';
+      card.innerHTML = `
+        <div class="card-label">${hostel}</div>
+        <div id="qr-bulk-${i}"></div>
+        <button class="grid-dl" onclick="downloadBulkQR(${i}, '${label.replace(/'/g,"\\'")}')">⬇ Download</button>
+      `;
+      grid.appendChild(card);
+
+      new QRCode(document.getElementById(`qr-bulk-${i}`), {
+        text:         url,
+        width:        130,
+        height:       130,
+        colorDark:    '#1B3A6B',
+        colorLight:   '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
+      });
+    });
+  }
+
+  function downloadBulkQR(idx, label) {
+    setTimeout(() => {
+      const img = document.querySelector(`#qr-bulk-${idx} img`);
+      if (!img) { alert('QR not ready, try again.'); return; }
+      const a = document.createElement('a');
+      a.href     = img.src;
+      a.download = label.replace(/\s/g,'_') + '_QR.png';
+      a.click();
+    }, 200);
+  }
+
+  // Init
+  updatePreview();
+</script>
+
+</body>
+</html>
