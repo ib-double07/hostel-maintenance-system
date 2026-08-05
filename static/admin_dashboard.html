@@ -283,11 +283,14 @@
   </div>
 
   <!-- QR code generator -->
-  <div class="nav-item" onclick="window.location.href='/static/qr_generator.html'">
+  <div class="nav-item" onclick="window.location.href='/qr-codes'">
     <span class="nav-icon">🔳</span>
     <span>QR Codes</span>
   </div>
-  <div class="sidebar-footer">HostelCare v1.0</div>
+  <div class="sidebar-footer">
+    HostelCare v1.0<br>
+    <a href="#" onclick="doLogout(); return false;" style="color:#90B8E8;text-decoration:underline;">Log out</a>
+  </div>
 </aside>
 
 <!-- Main content -->
@@ -396,9 +399,13 @@
   async function loadData() {
     try {
       const [statsRes, listRes] = await Promise.all([
-        fetch(`${API}/api/admin/stats`),
-        fetch(`${API}/api/admin/complaints`)
+        fetch(`${API}/api/admin/stats`, { credentials: 'include' }),
+        fetch(`${API}/api/admin/complaints`, { credentials: 'include' })
       ]);
+      if (statsRes.status === 401 || listRes.status === 401) {
+        window.location.href = '/admin-login';
+        return;
+      }
       const stats = await statsRes.json();
       const list  = await listRes.json();
 
@@ -461,7 +468,7 @@
   async function openModal(ref) {
     currentRef = ref;
     try {
-      const res = await fetch(`${API}/api/admin/complaints/${ref}`);
+      const res = await fetch(`${API}/api/admin/complaints/${ref}`, { credentials: 'include' });
       const c   = await res.json();
 
       document.getElementById('modal-title').textContent  = cap(c.category) + ' Complaint';
@@ -509,6 +516,7 @@
     try {
       await fetch(`${API}/api/admin/complaints/${currentRef}/status`, {
         method: 'PATCH',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
       });
@@ -539,6 +547,13 @@
   function fmtDate(s) {
     if (!s) return '—';
     return new Date(s + 'Z').toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  }
+
+  // ── Logout ────────────────────────────────────────────────────────────────────
+
+  async function doLogout() {
+    await fetch('/api/logout', { method: 'POST', credentials: 'include' });
+    window.location.href = '/admin-login';
   }
 
   // ── Boot ──────────────────────────────────────────────────────────────────────

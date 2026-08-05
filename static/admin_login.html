@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Login – HostelCare</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #F0F4F8;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #1A202C;
+    }
+
+    .login-card {
+      background: #fff;
+      border-radius: 16px;
+      border: 1px solid #E2E8F0;
+      padding: 2.5rem;
+      width: 100%;
+      max-width: 360px;
+    }
+
+    .logo {
+      text-align: center;
+      font-size: 32px;
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 18px;
+      font-weight: 700;
+      color: #1B3A6B;
+      margin-bottom: 4px;
+    }
+
+    .subtitle {
+      text-align: center;
+      font-size: 13px;
+      color: #718096;
+      margin-bottom: 1.75rem;
+    }
+
+    .field { margin-bottom: 1rem; }
+    .field label {
+      display: block; font-size: 12px; font-weight: 600;
+      color: #718096; margin-bottom: 5px;
+      text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    .field input {
+      width: 100%;
+      border: 1.5px solid #E2E8F0;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-family: inherit; font-size: 14px; color: #1A202C;
+      outline: none; background: #F7FAFC;
+      transition: border-color 0.15s;
+    }
+    .field input:focus { border-color: #1B3A6B; background: #fff; }
+
+    .login-btn {
+      width: 100%;
+      background: #1B3A6B; color: #fff;
+      border: none; border-radius: 10px;
+      padding: 12px; font-size: 14px; font-weight: 600;
+      cursor: pointer; margin-top: 0.5rem;
+      transition: background 0.15s;
+    }
+    .login-btn:hover { background: #163060; }
+    .login-btn:disabled { background: #A0AEC0; cursor: not-allowed; }
+
+    .error-msg {
+      display: none;
+      background: #FEF2F2;
+      color: #C53030;
+      font-size: 13px;
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-card">
+    <div class="logo">🏫</div>
+    <h1>HostelCare Admin</h1>
+    <div class="subtitle">Sign in to manage complaints</div>
+
+    <div class="error-msg" id="error-msg">Invalid username or password.</div>
+
+    <div class="field">
+      <label>Username</label>
+      <input type="text" id="username" placeholder="admin" autocomplete="username" />
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" />
+    </div>
+
+    <button class="login-btn" id="login-btn" onclick="doLogin()">Sign in</button>
+  </div>
+
+<script>
+  document.getElementById('password').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+
+  async function doLogin() {
+    const username = document.getElementById('username').value.trim();
+    const password = document.getElementById('password').value;
+    const btn = document.getElementById('login-btn');
+    const errBox = document.getElementById('error-msg');
+
+    errBox.style.display = 'none';
+
+    if (!username || !password) {
+      errBox.textContent = 'Please enter both username and password.';
+      errBox.style.display = 'block';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Signing in…';
+
+    try {
+      const resp = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ username, password })
+      });
+      const result = await resp.json();
+
+      if (!resp.ok) {
+        errBox.textContent = result.error || 'Login failed.';
+        errBox.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Sign in';
+        return;
+      }
+
+      window.location.href = '/admin';
+
+    } catch (err) {
+      errBox.textContent = 'Could not reach server. Try again.';
+      errBox.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Sign in';
+    }
+  }
+</script>
+
+</body>
+</html>

@@ -1,10 +1,31 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, session, redirect
 from flask_cors import CORS
 import sqlite3, os, uuid, base64, re
 from datetime import datetime
+from functools import wraps
 
 app = Flask(__name__, static_folder="static")
-CORS(app)  # Allow requests from the student HTML page
+CORS(app, supports_credentials=True)  # Allow requests from the student HTML page
+
+# ── Admin login setup ────────────────────────────────────────────────────────
+# IMPORTANT: change these before going live, or better, set them as
+# environment variables in Render (Settings → Environment) instead of
+# hardcoding them here.
+app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key-before-deploying")
+ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "changeme123")
+
+def login_required(f):
+    """Decorator: blocks access unless the admin is logged in."""
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if not session.get("logged_in"):
+            # If it's an API call, return JSON 401; otherwise redirect to login page
+            if request.path.startswith("/api/"):
+                return jsonify({"error": "Unauthorized"}), 401
+            return redirect("/admin-login")
+        return f(*args, **kwargs)
+    return wrapper
 
 # ── Database setup ─────────────────────────────────────────────────────────────
 
@@ -73,10 +94,41 @@ def save_photo(data_url: str, ref: str) -> str | None:
 def index():
     return send_from_directory("static", "student_complaint.html")
 
-# Admin dashboard
+# Login page
+@app.route("/admin-login")
+def admin_login_page():
+    return send_from_directory("static", "admin_login.html")
+
+# Login submit
+@app.route("/api/login", methods=["POST"])
+def login():
+    data = request.get_json(force=True)
+    username = data.get("username", "")
+    password = data.get("password", "")
+
+    if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+        session["logged_in"] = True
+        return jsonify({"success": True})
+
+    return jsonify({"error": "Invalid username or password"}), 401
+
+# Logout
+@app.route("/api/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return jsonify({"success": True})
+
+# Admin dashboard (protected)
 @app.route("/admin")
+@login_required
 def admin():
     return send_from_directory("static", "admin_dashboard.html")
+
+# QR generator (protected)
+@app.route("/qr-codes")
+@login_required
+def qr_codes():
+    return send_from_directory("static", "qr_generator.html")
 
 # Serve uploaded photos
 @app.route("/uploads/<filename>")
@@ -140,6 +192,7 @@ def submit_complaint():
 # ── 2. Admin: list all complaints ──────────────────────────────────────────────
 
 @app.route("/api/admin/complaints", methods=["GET"])
+@login_required
 def list_complaints():
     status   = request.args.get("status")   # filter by status if provided
     category = request.args.get("category") # filter by category if provided
@@ -165,6 +218,7 @@ def list_complaints():
 # ── 3. Admin: get single complaint ─────────────────────────────────────────────
 
 @app.route("/api/admin/complaints/<ref>", methods=["GET"])
+@login_required
 def get_complaint(ref):
     with get_db() as conn:
         row = conn.execute(
@@ -180,6 +234,7 @@ def get_complaint(ref):
 # ── 4. Admin: update status ────────────────────────────────────────────────────
 
 @app.route("/api/admin/complaints/<ref>/status", methods=["PATCH"])
+@login_required
 def update_status(ref):
     data   = request.get_json(force=True)
     status = data.get("status")
@@ -204,6 +259,7 @@ def update_status(ref):
 # ── 5. Stats for admin dashboard ───────────────────────────────────────────────
 
 @app.route("/api/admin/stats", methods=["GET"])
+@login_required
 def get_stats():
     with get_db() as conn:
         total    = conn.execute("SELECT COUNT(*) FROM complaints").fetchone()[0]
@@ -228,5 +284,4 @@ def get_stats():
 # ── Run ────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8080))
-    app.run(debug=True, host="0.0.0.0", port=port)
+    app.run(debug=True, host="0.0.0.0", port=8080)
