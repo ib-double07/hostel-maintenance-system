@@ -12,8 +12,8 @@ CORS(app, supports_credentials=True)  # Allow requests from the student HTML pag
 # environment variables in Render (Settings → Environment) instead of
 # hardcoding them here.
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key-before-deploying")
-ADMIN_USERNAME = os.environ.get("ADMIN_USERNAME", "admin")
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "changeme123")
+Username = os.environ.get("Username", "admin")
+Password = os.environ.get("Password", "changeme123")
 
 def login_required(f):
     """Decorator: blocks access unless the admin is logged in."""
