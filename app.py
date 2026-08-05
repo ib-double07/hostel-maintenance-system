@@ -106,7 +106,7 @@ def login():
     username = data.get("username", "")
     password = data.get("password", "")
 
-    if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+    if username == Username and password == Password:
         session["logged_in"] = True
         return jsonify({"success": True})
 
