@@ -297,7 +297,7 @@
 
 <!-- Sidebar -->
 <aside class="sidebar">
-  <div class="sidebar-logo">🏫 HostelCare</div>
+  <div class="sidebar-logo">🏫 Hostel Maintenance</div>
   <div class="sidebar-sub">Admin Panel</div>
 
   <div class="nav-item active">
@@ -307,11 +307,11 @@
 
   <!-- QR code generator -->
   <div class="nav-item" onclick="window.location.href='/qr-codes'">
-    <span class="nav-icon">🔳</span>
+    <span class="nav-icon">🔢</span>
     <span>QR Codes</span>
   </div>
   <div class="sidebar-footer">
-    HostelCare v1.0<br>
+    HostelMaintenance v1.0<br>
     <a href="#" onclick="doLogout(); return false;" style="color:#90B8E8;text-decoration:underline;">Log out</a>
   </div>
 </aside>
@@ -320,11 +320,11 @@
 <main class="main">
   <div class="topbar">
     <div>
-      <div class="page-title">Maintenance Complaints</div>
+      <div class="page-title">University Of Maiduguri Hostel Maintenance Complaints</div>
       <div class="page-sub" id="last-updated">Loading…</div>
     </div>
     <div class="topbar-logo">
-      <img src="/static/logo.png" alt="School logo" onerror="this.parentElement.style.display='none'" />
+      <img src="/static/logo.png" alt="University logo" onerror="this.parentElement.style.display='none'" />
     </div>
   </div>
 
@@ -351,7 +351,7 @@
   <!-- Toolbar -->
   <div class="toolbar">
     <div class="search-box">
-      🔍 <input type="text" id="search-input" placeholder="Search by student, hostel, ref…" oninput="filterTable()" />
+     <input type="text" id="search-input" placeholder="Search by student, hostel, ref…" oninput="filterTable()" />
     </div>
     <select class="filter-select" id="filter-status" onchange="filterTable()">
       <option value="">All statuses</option>
