@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>QR Code Generator – HostelCare</title>
+  <title>QR Code Generator for Hostel Maintanance</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -224,7 +224,7 @@
 
 <div class="header">
   <div>
-    <h1>🔳 QR Code Generator</h1>
+    <h1>QR Code Generator</h1>
     <p>Generate scannable QR codes for each hostel room</p>
   </div>
   <a class="back-link" href="/admin">← Back to dashboard</a>
@@ -238,7 +238,7 @@
 
     <div class="field">
       <label>Base URL (your server)</label>
-      <input type="text" id="base-url" value="http://localhost:8080" placeholder="https://yourserver.com" oninput="updatePreview()" />
+      <input type="text" id="base-url" value="https://umhm-system.onrender.com" placeholder="https://https://umhm-system.onrender.com" oninput="updatePreview()" />
     </div>
     <div class="field">
       <label>Hostel / Block name</label>
@@ -262,7 +262,7 @@
 
     <!-- Empty state -->
     <div class="empty-state" id="empty-state">
-      <div class="empty-icon">🔳</div>
+      <div class="empty-icon"></div>
       <p>Fill in the form and click Generate</p>
     </div>
 
@@ -274,7 +274,7 @@
         <div class="qr-sub">Scan to report a maintenance issue</div>
       </div>
       <div class="qr-actions">
-        <button onclick="copyUrl()">📋 Copy URL</button>
+        <button onclick="copyUrl()"> Copy URL</button>
         <button class="primary-action" onclick="downloadQR()">⬇ Download PNG</button>
       </div>
     </div>

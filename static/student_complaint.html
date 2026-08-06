@@ -19,6 +19,27 @@
       background: #1B3A6B;
       color: #fff;
       padding: 1.25rem 1.5rem 1.5rem;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .header-text { flex: 1; min-width: 0; }
+    .header-logo {
+      width: 48px;
+      height: 48px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .header-logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
     }
     .header-meta {
       font-size: 12px;
@@ -85,7 +106,10 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 22px;
+    }
+    .cat-card .icon svg {
+      width: 22px;
+      height: 22px;
     }
     .cat-card.elec .icon  { background: #FEF3C7; color: #D97706; }
     .cat-card.plumb .icon { background: #DBEAFE; color: #2563EB; }
@@ -276,9 +300,14 @@
 <body>
 
 <div class="header">
-  <div class="header-meta">Hostel Maintenance</div>
-  <h1 id="hostel-name">Block A – Room 204</h1>
-  <div class="header-sub">Submit a complaint and we'll fix it fast.</div>
+  <div class="header-text">
+    <div class="header-meta">Hostel Maintenance</div>
+    <h1 id="hostel-name">Block A – Room 204</h1>
+    <div class="header-sub">Submit a complaint and we'll fix it fast.</div>
+  </div>
+  <div class="header-logo">
+    <img src="/static/logo.png" alt="School logo" onerror="this.parentElement.style.display='none'" />
+  </div>
 </div>
 
 <div id="main-form">
@@ -289,15 +318,35 @@
       <div class="section-label">Type of complaint</div>
       <div class="category-grid">
         <div class="cat-card elec" data-cat="electrical" onclick="selectCategory(this)">
-          <div class="icon">⚡</div>
+          <div class="icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            </svg>
+          </div>
           <span>Electrical</span>
         </div>
         <div class="cat-card plumb" data-cat="plumbing" onclick="selectCategory(this)">
-          <div class="icon">🚿</div>
+          <div class="icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 4h16v6a8 8 0 0 1-16 0V4Z"></path>
+              <path d="M8 4V2"></path>
+              <path d="M16 4V2"></path>
+              <path d="M12 14v2"></path>
+              <path d="M9 20a3 3 0 0 0 6 0"></path>
+              <path d="M12 16v0"></path>
+            </svg>
+          </div>
           <span>Plumbing</span>
         </div>
         <div class="cat-card furn" data-cat="furniture" onclick="selectCategory(this)">
-          <div class="icon">🪑</div>
+          <div class="icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 9V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v3"></path>
+              <path d="M3 11v4a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2Z"></path>
+              <path d="M5 19v-2"></path>
+              <path d="M19 19v-2"></path>
+            </svg>
+          </div>
           <span>Furniture</span>
         </div>
       </div>
