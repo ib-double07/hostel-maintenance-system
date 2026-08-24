@@ -1,3 +1,4 @@
+import resend
 from flask import Flask, request, jsonify, send_from_directory, session, redirect
 from flask_cors import CORS
 import sqlite3, os, uuid, base64, re, smtplib
@@ -17,62 +18,85 @@ Username = os.environ.get("Username", "admin")
 Password = os.environ.get("Password", "changeme123")
 
 # ── Email notification setup ────────────────────────────────────────────────
-# Set these as environment variables in Render (Environment tab).
-# Uses Gmail's SMTP server by default — you need a Gmail "App Password"
-# (a normal Gmail password will NOT work here).
-SMTP_HOST     = os.environ.get("SMTP_HOST", "smtp.gmail.com")
-SMTP_PORT     = int(os.environ.get("SMTP_PORT", 587))
-SMTP_USERNAME = os.environ.get("SMTP_USERNAME")   # e.g. yourhostelapp@gmail.com
-SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD")   # Gmail App Password (16 characters)
-ADMIN_EMAIL   = os.environ.get("ADMIN_EMAIL")     # where notifications should be sent
+# Resend email API
+
+import resend
+
+# These values are loaded from Render Environment Variables
+RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
+ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL")
+EMAIL_FROM = os.environ.get("EMAIL_FROM", "onboarding@resend.dev")
+
 
 def send_admin_notification(complaint):
     """
     Sends an email to the admin whenever a new complaint is submitted.
-    Fails silently (just logs a warning) so a broken email setup never
-    prevents a student's complaint from being saved.
+    Email failure will not prevent the complaint from being saved.
     """
-    if not (SMTP_USERNAME and SMTP_PASSWORD and ADMIN_EMAIL):
-        print("Email notification skipped: SMTP_USERNAME / SMTP_PASSWORD / ADMIN_EMAIL not set.")
+
+    if not RESEND_API_KEY:
+        print("Email notification skipped: RESEND_API_KEY not set.")
         return
 
-    subject = f"New maintenance complaint — {complaint['category'].title()} ({complaint['ref_number']})"
-    body = (
-        f"A new hostel maintenance complaint has been submitted.\n\n"
-        f"Reference:   {complaint['ref_number']}\n"
-        f"Hostel:      {complaint['hostel']}\n"
-        f"Room:        {complaint['room']}\n"
-        f"Student ID:  {complaint['student']}\n"
-        f"Category:    {complaint['category']}\n"
-        f"Description: {complaint['description']}\n\n"
-        f"Log in to the admin dashboard to view full details and any attached photo."
+    if not ADMIN_EMAIL:
+        print("Email notification skipped: ADMIN_EMAIL not set.")
+        return
+
+    subject = (
+        f"New maintenance complaint — "
+        f"{complaint['category'].title()} "
+        f"({complaint['ref_number']})"
     )
 
-    msg = MIMEText(body)
-    msg["Subject"] = subject
-    msg["From"] = SMTP_USERNAME
-    msg["To"] = ADMIN_EMAIL
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6;">
+
+        <h2>New Hostel Maintenance Complaint</h2>
+
+        <p>A new maintenance complaint has been submitted.</p>
+
+        <hr>
+
+        <p><strong>Reference:</strong> {complaint['ref_number']}</p>
+        <p><strong>Hostel:</strong> {complaint['hostel']}</p>
+        <p><strong>Room:</strong> {complaint['room']}</p>
+        <p><strong>Student ID:</strong> {complaint['student']}</p>
+        <p><strong>Category:</strong> {complaint['category']}</p>
+
+        <p><strong>Description:</strong></p>
+        <p>{complaint['description']}</p>
+
+        <hr>
+
+        <p>
+            Log in to the UMHM admin dashboard to view the
+            full complaint and any attached photo.
+        </p>
+
+    </body>
+    </html>
+    """
 
     try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
-            server.starttls()
-            server.login(SMTP_USERNAME, SMTP_PASSWORD)
-            server.send_message(msg)
-    except Exception as e:
-        # Never let an email failure break complaint submission
-        print(f"Failed to send admin email notification: {e}")
+        resend.api_key = RESEND_API_KEY
 
-def login_required(f):
-    """Decorator: blocks access unless the admin is logged in."""
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-        if not session.get("logged_in"):
-            # If it's an API call, return JSON 401; otherwise redirect to login page
-            if request.path.startswith("/api/"):
-                return jsonify({"error": "Unauthorized"}), 401
-            return redirect("/admin-login")
-        return f(*args, **kwargs)
-    return wrapper
+        response = resend.Emails.send({
+            "from": EMAIL_FROM,
+            "to": ADMIN_EMAIL,
+            "subject": subject,
+            "html": html
+        })
+
+        print(
+            f"Admin email notification sent successfully: {response}"
+        )
+
+    except Exception as e:
+        print(
+            f"Failed to send admin email notification: {e}"
+        )
 
 # ── Database setup ─────────────────────────────────────────────────────────────
 
