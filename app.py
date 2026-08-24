@@ -226,6 +226,12 @@ def index():
     return send_from_directory(STATIC_FOLDER, "student_complaint.html")
 
 
+@app.route("/track")
+def track_page():
+    """Public complaint tracking page."""
+    return send_from_directory(STATIC_FOLDER, "track_complaint.html")
+
+
 @app.route("/admin-login")
 def admin_login_page():
     return send_from_directory(STATIC_FOLDER, "admin_login.html")
@@ -363,6 +369,35 @@ def submit_complaint():
             "message": "Complaint submitted successfully.",
         }
     ), 201
+
+
+# -----------------------------------------------------------------------------
+# Public API: complaint tracking
+# -----------------------------------------------------------------------------
+
+@app.route("/api/track/<ref>", methods=["GET"])
+def track_complaint(ref):
+    """Return safe, public complaint status information by reference number."""
+    ref = str(ref).strip().upper()
+
+    if not ref:
+        return jsonify({"error": "Reference number is required"}), 400
+
+    with get_db() as conn:
+        row = conn.execute(
+            """
+            SELECT ref_number, hostel, room, category, status,
+                   created_at, updated_at
+            FROM complaints
+            WHERE UPPER(ref_number) = ?
+            """,
+            (ref,),
+        ).fetchone()
+
+    if row is None:
+        return jsonify({"error": "Complaint not found."}), 404
+
+    return jsonify(dict(row))
 
 
 # -----------------------------------------------------------------------------

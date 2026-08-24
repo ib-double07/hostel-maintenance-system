@@ -26,8 +26,8 @@
     }
     .header-text { flex: 1; min-width: 0; }
     .header-logo {
-      width: 100px;
-      height: 100px;
+      width: 48px;
+      height: 48px;
       border-radius: 8px;
       background: rgba(255,255,255,0.1);
       display: flex;
@@ -301,12 +301,12 @@
 
 <div class="header">
   <div class="header-text">
-    <div class="header-meta">University Of Maiduguri Hostel Maintenance</div>
+    <div class="header-meta">Hostel Maintenance</div>
     <h1 id="hostel-name">Block A – Room 204</h1>
     <div class="header-sub">Submit a complaint and we'll fix it fast.</div>
   </div>
   <div class="header-logo">
-    <img src="/static/logo.png" alt="University logo" onerror="this.parentElement.style.display='none'" />
+    <img src="/static/logo.png" alt="School logo" onerror="this.parentElement.style.display='none'" />
   </div>
 </div>
 
@@ -402,6 +402,7 @@
   <h2>Complaint submitted!</h2>
   <p>Your complaint has been received.<br>The maintenance team will be notified.</p>
   <div class="success-ref" id="ref-num">Ref: #MCR-00001</div>
+  <a href="#" id="track-link" class="new-report-btn" style="text-decoration:none;display:inline-block;">Track this complaint</a>
   <button class="new-report-btn" onclick="resetForm()">Submit another complaint</button>
 </div>
 
@@ -491,6 +492,7 @@
       if (!resp.ok) throw new Error(result.error || 'Submission failed');
 
       document.getElementById('ref-num').textContent = 'Ref: #' + result.ref_number;
+      document.getElementById('track-link').href = '/track?ref=' + encodeURIComponent(result.ref_number);
       document.getElementById('main-form').style.display = 'none';
       document.getElementById('success-screen').style.display = 'flex';
 

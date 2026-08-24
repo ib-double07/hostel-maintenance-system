@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Track Your Complaint – HostelCare</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #F0F4F8;
+      min-height: 100vh;
+      color: #1A202C;
+    }
+
+    .header {
+      background: #1B3A6B;
+      color: #fff;
+      padding: 1.25rem 1.5rem 1.5rem;
+    }
+    .header-meta {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #90B8E8;
+      margin-bottom: 4px;
+    }
+    .header h1 { font-size: 20px; font-weight: 600; margin-bottom: 2px; }
+    .header-sub { font-size: 13px; color: #B8D0EE; }
+
+    .body-wrap {
+      padding: 1.25rem;
+      max-width: 480px;
+      margin: 0 auto;
+    }
+
+    /* Search card */
+    .search-card {
+      background: #fff;
+      border-radius: 12px;
+      border: 1px solid #E2E8F0;
+      padding: 1.25rem;
+      margin-top: 1.25rem;
+    }
+    .search-card label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #4A5568;
+      margin-bottom: 10px;
+    }
+    .search-row {
+      display: flex;
+      gap: 8px;
+    }
+    .search-row input {
+      flex: 1;
+      border: 1.5px solid #E2E8F0;
+      border-radius: 8px;
+      padding: 11px 12px;
+      font-family: inherit;
+      font-size: 14px;
+      color: #1A202C;
+      outline: none;
+      background: #F7FAFC;
+      text-transform: uppercase;
+      transition: border-color 0.15s;
+    }
+    .search-row input:focus { border-color: #1B3A6B; background: #fff; }
+    .search-row input::placeholder { color: #A0AEC0; text-transform: none; }
+
+    .track-btn {
+      background: #1B3A6B;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      padding: 0 20px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    .track-btn:hover { background: #163060; }
+    .track-btn:disabled { background: #A0AEC0; cursor: not-allowed; }
+
+    .error-box {
+      display: none;
+      margin-top: 12px;
+      background: #FEF2F2;
+      color: #C53030;
+      font-size: 13px;
+      padding: 10px 12px;
+      border-radius: 8px;
+    }
+
+    /* Result card */
+    .result-card {
+      display: none;
+      background: #fff;
+      border-radius: 12px;
+      border: 1px solid #E2E8F0;
+      padding: 1.5rem;
+      margin-top: 1.25rem;
+    }
+
+    .result-ref {
+      font-size: 12px;
+      color: #718096;
+      margin-bottom: 4px;
+    }
+    .result-category {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1B3A6B;
+      margin-bottom: 4px;
+      text-transform: capitalize;
+    }
+    .result-location {
+      font-size: 13px;
+      color: #718096;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Status tracker */
+    .tracker {
+      display: flex;
+      align-items: flex-start;
+      margin-bottom: 1.5rem;
+    }
+    .track-step {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+    .track-dot {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #E2E8F0;
+      color: #A0AEC0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      z-index: 2;
+      transition: background 0.2s, color 0.2s;
+    }
+    .track-line {
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      width: 100%;
+      height: 3px;
+      background: #E2E8F0;
+      z-index: 1;
+    }
+    .track-step:last-child .track-line { display: none; }
+    .track-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #A0AEC0;
+      margin-top: 8px;
+      text-align: center;
+    }
+
+    .track-step.done .track-dot { background: #1B3A6B; color: #fff; }
+    .track-step.done .track-line { background: #1B3A6B; }
+    .track-step.done .track-label { color: #1B3A6B; }
+    .track-step.current .track-dot { background: #D97706; color: #fff; }
+    .track-step.current .track-label { color: #D97706; }
+
+    .status-banner {
+      text-align: center;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 1.25rem;
+    }
+    .status-banner.pending     { background: #FEF3C7; color: #92400E; }
+    .status-banner.in_progress { background: #DBEAFE; color: #1E40AF; }
+    .status-banner.resolved    { background: #D1FAE5; color: #065F46; }
+
+    .detail-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-top: 1px solid #F0F4F8;
+      font-size: 13px;
+    }
+    .detail-row span:first-child { color: #718096; }
+    .detail-row span:last-child { color: #2D3748; font-weight: 500; text-align: right; }
+
+    .search-again {
+      display: block;
+      width: 100%;
+      margin-top: 1.25rem;
+      background: none;
+      border: 2px solid #1B3A6B;
+      color: #1B3A6B;
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-meta">Hostel Maintenance</div>
+  <h1>Track Your Complaint</h1>
+  <div class="header-sub">Enter your reference number to check its status.</div>
+</div>
+
+<div class="body-wrap">
+
+  <div class="search-card" id="search-card">
+    <label>Reference Number</label>
+    <div class="search-row">
+      <input type="text" id="ref-input" placeholder="e.g. MCR-A1B2C3D4" />
+      <button class="track-btn" id="track-btn" onclick="trackComplaint()">Track</button>
+    </div>
+    <div class="error-box" id="error-box"></div>
+  </div>
+
+  <div class="result-card" id="result-card">
+    <div class="result-ref" id="r-ref"></div>
+    <div class="result-category" id="r-category"></div>
+    <div class="result-location" id="r-location"></div>
+
+    <div class="status-banner" id="status-banner"></div>
+
+    <div class="tracker" id="tracker">
+      <div class="track-step" data-step="pending">
+        <div class="track-dot">1</div>
+        <div class="track-line"></div>
+        <div class="track-label">Pending</div>
+      </div>
+      <div class="track-step" data-step="in_progress">
+        <div class="track-dot">2</div>
+        <div class="track-line"></div>
+        <div class="track-label">In Progress</div>
+      </div>
+      <div class="track-step" data-step="resolved">
+        <div class="track-dot">3</div>
+        <div class="track-line"></div>
+        <div class="track-label">Resolved</div>
+      </div>
+    </div>
+
+    <div class="detail-row"><span>Submitted</span><span id="r-created"></span></div>
+    <div class="detail-row"><span>Last updated</span><span id="r-updated"></span></div>
+
+    <button class="search-again" onclick="resetSearch()">Track another complaint</button>
+  </div>
+
+</div>
+
+<script>
+  // Pre-fill from URL, e.g. /track?ref=MCR-A1B2C3D4
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('ref')) {
+    document.getElementById('ref-input').value = urlParams.get('ref').toUpperCase();
+    trackComplaint();
+  }
+
+  document.getElementById('ref-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') trackComplaint();
+  });
+
+  async function trackComplaint() {
+    const ref = document.getElementById('ref-input').value.trim().toUpperCase();
+    const btn = document.getElementById('track-btn');
+    const errBox = document.getElementById('error-box');
+
+    errBox.style.display = 'none';
+
+    if (!ref) {
+      errBox.textContent = 'Please enter a reference number.';
+      errBox.style.display = 'block';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '...';
+
+    try {
+      const resp = await fetch(`/api/track/${encodeURIComponent(ref)}`);
+      const data = await resp.json();
+
+      if (!resp.ok) {
+        errBox.textContent = data.error || 'Complaint not found.';
+        errBox.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Track';
+        return;
+      }
+
+      showResult(data);
+
+    } catch (err) {
+      errBox.textContent = 'Could not reach the server. Please try again.';
+      errBox.style.display = 'block';
+    }
+
+    btn.disabled = false;
+    btn.textContent = 'Track';
+  }
+
+  function showResult(c) {
+    document.getElementById('search-card').style.display = 'none';
+    document.getElementById('result-card').style.display = 'block';
+
+    document.getElementById('r-ref').textContent = 'Ref: #' + c.ref_number;
+    document.getElementById('r-category').textContent = c.category;
+    document.getElementById('r-location').textContent = c.hostel + (c.room ? ' / Room ' + c.room : '');
+    document.getElementById('r-created').textContent = fmtDate(c.created_at);
+    document.getElementById('r-updated').textContent = fmtDate(c.updated_at);
+
+    const banner = document.getElementById('status-banner');
+    banner.className = 'status-banner ' + c.status;
+    banner.textContent = {
+      pending: '🟡 Your complaint is pending review',
+      in_progress: '🔵 Maintenance is currently in progress',
+      resolved: '🟢 This complaint has been resolved'
+    }[c.status] || c.status;
+
+    const order = ['pending', 'in_progress', 'resolved'];
+    const currentIndex = order.indexOf(c.status);
+
+    document.querySelectorAll('.track-step').forEach((step, i) => {
+      step.classList.remove('done', 'current');
+      if (i < currentIndex) step.classList.add('done');
+      else if (i === currentIndex) step.classList.add(c.status === 'resolved' ? 'done' : 'current');
+    });
+  }
+
+  function resetSearch() {
+    document.getElementById('search-card').style.display = 'block';
+    document.getElementById('result-card').style.display = 'none';
+    document.getElementById('ref-input').value = '';
+    document.getElementById('error-box').style.display = 'none';
+  }
+
+  function fmtDate(s) {
+    if (!s) return '—';
+    return new Date(s + 'Z').toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  }
+</script>
+
+</body>
+</html>
