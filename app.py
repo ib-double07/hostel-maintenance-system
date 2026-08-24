@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify, send_from_directory, session, redirect
 from flask_cors import CORS
-import sqlite3, os, uuid, base64, re
+import sqlite3, os, uuid, base64, re, smtplib
+from email.mime.text import MIMEText
 from datetime import datetime
 from functools import wraps
 
@@ -14,6 +15,52 @@ CORS(app, supports_credentials=True)  # Allow requests from the student HTML pag
 app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key-before-deploying")
 Username = os.environ.get("Username", "admin")
 Password = os.environ.get("Password", "changeme123")
+
+# ── Email notification setup ────────────────────────────────────────────────
+# Set these as environment variables in Render (Environment tab).
+# Uses Gmail's SMTP server by default — you need a Gmail "App Password"
+# (a normal Gmail password will NOT work here).
+SMTP_HOST     = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+SMTP_PORT     = int(os.environ.get("SMTP_PORT", 587))
+SMTP_USERNAME = os.environ.get("SMTP_USERNAME")   # e.g. yourhostelapp@gmail.com
+SMTP_PASSWORD = os.environ.get("SMTP_PASSWORD")   # Gmail App Password (16 characters)
+ADMIN_EMAIL   = os.environ.get("ADMIN_EMAIL")     # where notifications should be sent
+
+def send_admin_notification(complaint):
+    """
+    Sends an email to the admin whenever a new complaint is submitted.
+    Fails silently (just logs a warning) so a broken email setup never
+    prevents a student's complaint from being saved.
+    """
+    if not (SMTP_USERNAME and SMTP_PASSWORD and ADMIN_EMAIL):
+        print("Email notification skipped: SMTP_USERNAME / SMTP_PASSWORD / ADMIN_EMAIL not set.")
+        return
+
+    subject = f"New maintenance complaint — {complaint['category'].title()} ({complaint['ref_number']})"
+    body = (
+        f"A new hostel maintenance complaint has been submitted.\n\n"
+        f"Reference:   {complaint['ref_number']}\n"
+        f"Hostel:      {complaint['hostel']}\n"
+        f"Room:        {complaint['room']}\n"
+        f"Student ID:  {complaint['student']}\n"
+        f"Category:    {complaint['category']}\n"
+        f"Description: {complaint['description']}\n\n"
+        f"Log in to the admin dashboard to view full details and any attached photo."
+    )
+
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"] = SMTP_USERNAME
+    msg["To"] = ADMIN_EMAIL
+
+    try:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USERNAME, SMTP_PASSWORD)
+            server.send_message(msg)
+    except Exception as e:
+        # Never let an email failure break complaint submission
+        print(f"Failed to send admin email notification: {e}")
 
 def login_required(f):
     """Decorator: blocks access unless the admin is logged in."""
@@ -173,13 +220,15 @@ def submit_complaint():
         ))
         conn.commit()
 
-    # ── Notify admin (optional: email / push / etc.) ─────────────────────────
-    # Uncomment and configure to send an email notification:
-    #
-    # send_admin_email(
-    #     subject = f"New complaint [{ref}] – {data['category']}",
-    #     body    = f"From: {data['student']}\nHostel: {data['hostel']}\n\n{data['description']}"
-    # )
+    # ── Notify admin by email ─────────────────────────────────────────────────
+    send_admin_notification({
+        "ref_number": ref,
+        "hostel": data["hostel"],
+        "room": data.get("room", ""),
+        "student": data["student"],
+        "category": data["category"],
+        "description": data["description"],
+    })
     # ─────────────────────────────────────────────────────────────────────────
 
     return jsonify({
