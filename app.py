@@ -1,39 +1,72 @@
-import resend
-from flask import Flask, request, jsonify, send_from_directory, session, redirect
-from flask_cors import CORS
-import sqlite3, os, uuid, base64, re, smtplib
-from email.mime.text import MIMEText
+import base64
+import os
+import re
+import sqlite3
+import uuid
 from datetime import datetime
 from functools import wraps
 
-app = Flask(__name__, static_folder="static")
-CORS(app, supports_credentials=True)  # Allow requests from the student HTML page
-
-# ── Admin login setup ────────────────────────────────────────────────────────
-# IMPORTANT: change these before going live, or better, set them as
-# environment variables in Render (Settings → Environment) instead of
-# hardcoding them here.
-app.secret_key = os.environ.get("SECRET_KEY", "change-this-secret-key-before-deploying")
-Username = os.environ.get("Username", "admin")
-Password = os.environ.get("Password", "changeme123")
-
-# ── Email notification setup ────────────────────────────────────────────────
-# Resend email API
-
 import resend
+from flask import Flask, jsonify, request, send_from_directory, session
+from flask_cors import CORS
 
-# These values are loaded from Render Environment Variables
+
+# -----------------------------------------------------------------------------
+# App configuration
+# -----------------------------------------------------------------------------
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_FOLDER = os.path.join(BASE_DIR, "static")
+UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
+DB_PATH = os.path.join(BASE_DIR, "maintenance.db")
+
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+app = Flask(__name__, static_folder=STATIC_FOLDER)
+CORS(app, supports_credentials=True)
+
+app.secret_key = os.environ.get(
+    "SECRET_KEY",
+    "change-this-secret-key-before-deploying",
+)
+
+ADMIN_USERNAME = os.environ.get("Username", "admin")
+ADMIN_PASSWORD = os.environ.get("Password", "changeme123")
+
+# Resend configuration
 RESEND_API_KEY = os.environ.get("RESEND_API_KEY")
 ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL")
 EMAIL_FROM = os.environ.get("EMAIL_FROM", "onboarding@resend.dev")
 
 
+# -----------------------------------------------------------------------------
+# Authentication
+# -----------------------------------------------------------------------------
+
+def login_required(view):
+    """Protect an admin route and return JSON for unauthenticated API calls."""
+    @wraps(view)
+    def wrapped_view(*args, **kwargs):
+        if not session.get("logged_in"):
+            if request.path.startswith("/api/"):
+                return jsonify({"error": "Authentication required"}), 401
+            return send_from_directory(STATIC_FOLDER, "admin_login.html")
+        return view(*args, **kwargs)
+
+    return wrapped_view
+
+
+# -----------------------------------------------------------------------------
+# Email notification
+# -----------------------------------------------------------------------------
+
 def send_admin_notification(complaint):
     """
-    Sends an email to the admin whenever a new complaint is submitted.
-    Email failure will not prevent the complaint from being saved.
-    """
+    Send an email to the admin when a complaint is submitted.
 
+    Email errors are intentionally ignored after logging so a complaint
+    is still saved even when email delivery fails.
+    """
     if not RESEND_API_KEY:
         print("Email notification skipped: RESEND_API_KEY not set.")
         return
@@ -48,236 +81,309 @@ def send_admin_notification(complaint):
         f"({complaint['ref_number']})"
     )
 
+    # Escape user-provided values before placing them in HTML.
+    def esc(value):
+        value = "" if value is None else str(value)
+        return (
+            value.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+            .replace('"', "&quot;")
+            .replace("'", "&#39;")
+        )
+
     html = f"""
     <!DOCTYPE html>
     <html>
     <body style="font-family: Arial, sans-serif; line-height: 1.6;">
-
         <h2>New Hostel Maintenance Complaint</h2>
-
         <p>A new maintenance complaint has been submitted.</p>
-
         <hr>
-
-        <p><strong>Reference:</strong> {complaint['ref_number']}</p>
-        <p><strong>Hostel:</strong> {complaint['hostel']}</p>
-        <p><strong>Room:</strong> {complaint['room']}</p>
-        <p><strong>Student ID:</strong> {complaint['student']}</p>
-        <p><strong>Category:</strong> {complaint['category']}</p>
-
+        <p><strong>Reference:</strong> {esc(complaint['ref_number'])}</p>
+        <p><strong>Hostel:</strong> {esc(complaint['hostel'])}</p>
+        <p><strong>Room:</strong> {esc(complaint['room'])}</p>
+        <p><strong>Student ID:</strong> {esc(complaint['student'])}</p>
+        <p><strong>Category:</strong> {esc(complaint['category'])}</p>
         <p><strong>Description:</strong></p>
-        <p>{complaint['description']}</p>
-
+        <p>{esc(complaint['description'])}</p>
         <hr>
-
         <p>
-            Log in to the UMHM admin dashboard to view the
-            full complaint and any attached photo.
+            Log in to the UMHM admin dashboard to view the full complaint
+            and any attached photo.
         </p>
-
     </body>
     </html>
     """
 
     try:
         resend.api_key = RESEND_API_KEY
-
-        response = resend.Emails.send({
-            "from": EMAIL_FROM,
-            "to": ADMIN_EMAIL,
-            "subject": subject,
-            "html": html
-        })
-
-        print(
-            f"Admin email notification sent successfully: {response}"
+        response = resend.Emails.send(
+            {
+                "from": EMAIL_FROM,
+                "to": ADMIN_EMAIL,
+                "subject": subject,
+                "html": html,
+            }
         )
+        print(f"Admin email notification sent successfully: {response}")
+    except Exception as exc:
+        print(f"Failed to send admin email notification: {exc}")
 
-    except Exception as e:
-        print(
-            f"Failed to send admin email notification: {e}"
-        )
 
-# ── Database setup ─────────────────────────────────────────────────────────────
-
-DB_PATH = "maintenance.db"
-UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+# -----------------------------------------------------------------------------
+# Database
+# -----------------------------------------------------------------------------
 
 def get_db():
-    """Open a database connection with row factory (returns dict-like rows)."""
+    """Open a SQLite connection that returns dictionary-like rows."""
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
+
 def init_db():
-    """Create tables if they don't exist yet."""
+    """Create the complaints table if it does not already exist."""
     with get_db() as conn:
-        conn.execute("""
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS complaints (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                ref_number  TEXT    NOT NULL UNIQUE,
-                hostel      TEXT    NOT NULL,
-                room        TEXT,
-                student     TEXT    NOT NULL,
-                category    TEXT    NOT NULL,   -- electrical | plumbing | furniture
-                description TEXT    NOT NULL,
-                photo_path  TEXT,
-                status      TEXT    DEFAULT 'pending',  -- pending | in_progress | resolved
-                created_at  TEXT    NOT NULL,
-                updated_at  TEXT    NOT NULL
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ref_number TEXT NOT NULL UNIQUE,
+                hostel TEXT NOT NULL,
+                room TEXT,
+                student TEXT NOT NULL,
+                category TEXT NOT NULL,
+                description TEXT NOT NULL,
+                photo_path TEXT,
+                status TEXT DEFAULT 'pending',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
             )
-        """)
+            """
+        )
         conn.commit()
+
 
 init_db()
 
 
-# ── Helper ─────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# Helpers
+# -----------------------------------------------------------------------------
 
 def now():
     return datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
 
+
 def generate_ref():
     return "MCR-" + str(uuid.uuid4())[:8].upper()
 
-def save_photo(data_url: str, ref: str) -> str | None:
+
+def save_photo(data_url, ref):
     """
-    Accept a base64 data URL from the student page,
-    decode it, save it as a file, and return the path.
+    Accept an image data URL, decode it, save it, and return the filename.
+    Returns None for an invalid/missing data URL.
     """
-    match = re.match(r"data:(image/\w+);base64,(.*)", data_url, re.DOTALL)
+    if not isinstance(data_url, str):
+        return None
+
+    match = re.match(r"^data:(image/(?:jpeg|jpg|png|gif|webp));base64,(.*)$",
+                     data_url, re.DOTALL | re.IGNORECASE)
     if not match:
         return None
-    ext = match.group(1).split("/")[1]   # e.g. "jpeg" or "png"
-    raw  = base64.b64decode(match.group(2))
-    filename = f"{ref}.{ext}"
+
+    mime_type = match.group(1).lower()
+    encoded_data = match.group(2)
+
+    extension = {
+        "image/jpeg": "jpg",
+        "image/jpg": "jpg",
+        "image/png": "png",
+        "image/gif": "gif",
+        "image/webp": "webp",
+    }[mime_type]
+
+    try:
+        raw = base64.b64decode(encoded_data, validate=True)
+    except (ValueError, TypeError):
+        return None
+
+    filename = f"{ref}.{extension}"
     path = os.path.join(UPLOAD_FOLDER, filename)
-    with open(path, "wb") as f:
-        f.write(raw)
+
+    with open(path, "wb") as file:
+        file.write(raw)
+
     return filename
 
 
-# ── Routes ─────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# Pages
+# -----------------------------------------------------------------------------
 
-# Serve the student HTML page directly (optional — useful in development)
 @app.route("/")
 def index():
-    return send_from_directory("static", "student_complaint.html")
+    return send_from_directory(STATIC_FOLDER, "student_complaint.html")
 
-# Login page
+
 @app.route("/admin-login")
 def admin_login_page():
-    return send_from_directory("static", "admin_login.html")
+    return send_from_directory(STATIC_FOLDER, "admin_login.html")
 
-# Login submit
+
+@app.route("/admin")
+@login_required
+def admin():
+    return send_from_directory(STATIC_FOLDER, "admin_dashboard.html")
+
+
+@app.route("/qr-codes")
+@login_required
+def qr_codes():
+    return send_from_directory(STATIC_FOLDER, "qr_generator.html")
+
+
+@app.route("/uploads/<path:filename>")
+def uploaded_file(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename)
+
+
+# -----------------------------------------------------------------------------
+# Authentication API
+# -----------------------------------------------------------------------------
+
 @app.route("/api/login", methods=["POST"])
 def login():
-    data = request.get_json(force=True)
-    username = data.get("username", "")
-    password = data.get("password", "")
+    data = request.get_json(silent=True) or {}
 
-    if username == Username and password == Password:
+    username = str(data.get("username", ""))
+    password = str(data.get("password", ""))
+
+    if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+        session.clear()
         session["logged_in"] = True
         return jsonify({"success": True})
 
     return jsonify({"error": "Invalid username or password"}), 401
 
-# Logout
+
 @app.route("/api/logout", methods=["POST"])
 def logout():
     session.clear()
     return jsonify({"success": True})
 
-# Admin dashboard (protected)
-@app.route("/admin")
-@login_required
-def admin():
-    return send_from_directory("static", "admin_dashboard.html")
 
-# QR generator (protected)
-@app.route("/qr-codes")
-@login_required
-def qr_codes():
-    return send_from_directory("static", "qr_generator.html")
-
-# Serve uploaded photos
-@app.route("/uploads/<filename>")
-def uploaded_file(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename)
-
-
-# ── 1. Submit a new complaint (called by student page) ─────────────────────────
+# -----------------------------------------------------------------------------
+# Student API: submit complaint
+# -----------------------------------------------------------------------------
 
 @app.route("/api/complaints", methods=["POST"])
 def submit_complaint():
-    data = request.get_json(force=True)
+    data = request.get_json(silent=True) or {}
 
-    # Validate required fields
     required = ["hostel", "student", "category", "description"]
-    missing  = [f for f in required if not data.get(f)]
-    if missing:
-        return jsonify({"error": f"Missing fields: {', '.join(missing)}"}), 400
+    missing = [
+        field for field in required
+        if not str(data.get(field, "")).strip()
+    ]
 
+    if missing:
+        return jsonify(
+            {"error": f"Missing fields: {', '.join(missing)}"}
+        ), 400
+
+    category = str(data["category"]).strip().lower()
     valid_categories = {"electrical", "plumbing", "furniture"}
-    if data["category"] not in valid_categories:
+
+    if category not in valid_categories:
         return jsonify({"error": "Invalid category"}), 400
 
-    ref    = generate_ref()
-    ts     = now()
-    photo  = save_photo(data["photo"], ref) if data.get("photo") else None
+    ref = generate_ref()
+    timestamp = now()
 
-    with get_db() as conn:
-        conn.execute("""
-            INSERT INTO complaints
-              (ref_number, hostel, room, student, category, description, photo_path, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            ref,
-            data["hostel"],
-            data.get("room", ""),
-            data["student"],
-            data["category"],
-            data["description"],
-            photo,
-            ts, ts
-        ))
-        conn.commit()
+    photo = None
+    if data.get("photo"):
+        photo = save_photo(data["photo"], ref)
 
-    # ── Notify admin by email ─────────────────────────────────────────────────
-    send_admin_notification({
-        "ref_number": ref,
-        "hostel": data["hostel"],
-        "room": data.get("room", ""),
-        "student": data["student"],
-        "category": data["category"],
-        "description": data["description"],
-    })
-    # ─────────────────────────────────────────────────────────────────────────
+    hostel = str(data["hostel"]).strip()
+    room = str(data.get("room", "")).strip()
+    student = str(data["student"]).strip()
+    description = str(data["description"]).strip()
 
-    return jsonify({
-        "success": True,
-        "ref_number": ref,
-        "message": "Complaint submitted successfully."
-    }), 201
+    try:
+        with get_db() as conn:
+            conn.execute(
+                """
+                INSERT INTO complaints
+                (
+                    ref_number,
+                    hostel,
+                    room,
+                    student,
+                    category,
+                    description,
+                    photo_path,
+                    created_at,
+                    updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    ref,
+                    hostel,
+                    room,
+                    student,
+                    category,
+                    description,
+                    photo,
+                    timestamp,
+                    timestamp,
+                ),
+            )
+            conn.commit()
+    except sqlite3.Error as exc:
+        print(f"Database error while saving complaint: {exc}")
+        return jsonify({"error": "Unable to save complaint"}), 500
+
+    send_admin_notification(
+        {
+            "ref_number": ref,
+            "hostel": hostel,
+            "room": room,
+            "student": student,
+            "category": category,
+            "description": description,
+        }
+    )
+
+    return jsonify(
+        {
+            "success": True,
+            "ref_number": ref,
+            "message": "Complaint submitted successfully.",
+        }
+    ), 201
 
 
-# ── 2. Admin: list all complaints ──────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# Admin API: complaints
+# -----------------------------------------------------------------------------
 
 @app.route("/api/admin/complaints", methods=["GET"])
 @login_required
 def list_complaints():
-    status   = request.args.get("status")   # filter by status if provided
-    category = request.args.get("category") # filter by category if provided
+    status = request.args.get("status")
+    category = request.args.get("category")
 
-    query  = "SELECT * FROM complaints WHERE 1=1"
+    query = "SELECT * FROM complaints WHERE 1=1"
     params = []
 
     if status:
-        query  += " AND status = ?"
+        query += " AND status = ?"
         params.append(status)
+
     if category:
-        query  += " AND category = ?"
+        query += " AND category = ?"
         params.append(category)
 
     query += " ORDER BY created_at DESC"
@@ -285,31 +391,28 @@ def list_complaints():
     with get_db() as conn:
         rows = conn.execute(query, params).fetchall()
 
-    return jsonify([dict(r) for r in rows])
+    return jsonify([dict(row) for row in rows])
 
-
-# ── 3. Admin: get single complaint ─────────────────────────────────────────────
 
 @app.route("/api/admin/complaints/<ref>", methods=["GET"])
 @login_required
 def get_complaint(ref):
     with get_db() as conn:
         row = conn.execute(
-            "SELECT * FROM complaints WHERE ref_number = ?", (ref,)
+            "SELECT * FROM complaints WHERE ref_number = ?",
+            (ref,),
         ).fetchone()
 
-    if not row:
+    if row is None:
         return jsonify({"error": "Complaint not found"}), 404
 
     return jsonify(dict(row))
 
 
-# ── 4. Admin: update status ────────────────────────────────────────────────────
-
 @app.route("/api/admin/complaints/<ref>/status", methods=["PATCH"])
 @login_required
 def update_status(ref):
-    data   = request.get_json(force=True)
+    data = request.get_json(silent=True) or {}
     status = data.get("status")
 
     valid_statuses = {"pending", "in_progress", "resolved"}
@@ -317,44 +420,78 @@ def update_status(ref):
         return jsonify({"error": "Invalid status"}), 400
 
     with get_db() as conn:
-        result = conn.execute("""
-            UPDATE complaints SET status = ?, updated_at = ?
+        result = conn.execute(
+            """
+            UPDATE complaints
+            SET status = ?, updated_at = ?
             WHERE ref_number = ?
-        """, (status, now(), ref))
+            """,
+            (status, now(), ref),
+        )
         conn.commit()
 
     if result.rowcount == 0:
         return jsonify({"error": "Complaint not found"}), 404
 
-    return jsonify({"success": True, "ref_number": ref, "status": status})
+    return jsonify(
+        {
+            "success": True,
+            "ref_number": ref,
+            "status": status,
+        }
+    )
 
 
-# ── 5. Stats for admin dashboard ───────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# Admin API: statistics
+# -----------------------------------------------------------------------------
 
 @app.route("/api/admin/stats", methods=["GET"])
 @login_required
 def get_stats():
     with get_db() as conn:
-        total    = conn.execute("SELECT COUNT(*) FROM complaints").fetchone()[0]
-        pending  = conn.execute("SELECT COUNT(*) FROM complaints WHERE status='pending'").fetchone()[0]
-        in_prog  = conn.execute("SELECT COUNT(*) FROM complaints WHERE status='in_progress'").fetchone()[0]
-        resolved = conn.execute("SELECT COUNT(*) FROM complaints WHERE status='resolved'").fetchone()[0]
+        total = conn.execute(
+            "SELECT COUNT(*) FROM complaints"
+        ).fetchone()[0]
 
-        by_cat   = conn.execute("""
-            SELECT category, COUNT(*) as count
-            FROM complaints GROUP BY category
-        """).fetchall()
+        pending = conn.execute(
+            "SELECT COUNT(*) FROM complaints WHERE status = 'pending'"
+        ).fetchone()[0]
 
-    return jsonify({
-        "total": total,
-        "pending": pending,
-        "in_progress": in_prog,
-        "resolved": resolved,
-        "by_category": [dict(r) for r in by_cat]
-    })
+        in_progress = conn.execute(
+            "SELECT COUNT(*) FROM complaints WHERE status = 'in_progress'"
+        ).fetchone()[0]
+
+        resolved = conn.execute(
+            "SELECT COUNT(*) FROM complaints WHERE status = 'resolved'"
+        ).fetchone()[0]
+
+        by_category = conn.execute(
+            """
+            SELECT category, COUNT(*) AS count
+            FROM complaints
+            GROUP BY category
+            """
+        ).fetchall()
+
+    return jsonify(
+        {
+            "total": total,
+            "pending": pending,
+            "in_progress": in_progress,
+            "resolved": resolved,
+            "by_category": [dict(row) for row in by_category],
+        }
+    )
 
 
-# ── Run ────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
+# Local development
+# -----------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=8080)
+    app.run(
+        debug=True,
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 8080)),
+    )
